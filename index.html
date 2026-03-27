@@ -30,6 +30,31 @@
       height: 100vh;
     }
 
+    .hero-title {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      color: rgba(255, 255, 255, 0.92);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(40px, 8vw, 96px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 500ms ease;
+      z-index: 1;
+    }
+
+    .hero-title.is-hidden {
+      opacity: 0;
+    }
+
     .hint {
       position: fixed;
       top: 16px;
@@ -73,20 +98,37 @@
       display: block;
       vertical-align: bottom;
     }
+
+    .swatch {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: clamp(48px, 4vw, 64px);
+      height: clamp(48px, 4vw, 64px);
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.88);
+      background: #000000;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <canvas id="picker" aria-label="Full page color picker"></canvas>
+  <h1 class="hero-title" id="heroTitle">BX Colour Selector</h1>
   <div class="hint">
     <span class="hint-group">HEX <span class="hint-value hex" id="hexValue">#------</span> |</span>
     <span class="hint-group">DEC <span class="hint-value dec" id="decValue">---,---,---</span> |</span>
     <span class="hint-status" id="statusValue">Left: HEX | Wheel: DEC</span>
   </div>
+  <div class="swatch" id="swatch" aria-hidden="true"></div>
 
   <script>
     const canvas = document.getElementById("picker");
     const context = canvas.getContext("2d", { willReadFrequently: true });
+    const heroTitle = document.getElementById("heroTitle");
     const hint = document.querySelector(".hint");
+    const swatch = document.getElementById("swatch");
     const hexValue = document.getElementById("hexValue");
     const decValue = document.getElementById("decValue");
     const statusValue = document.getElementById("statusValue");
@@ -188,6 +230,7 @@
       hexValue.textContent = hex;
       decValue.textContent = decText;
       statusValue.textContent = "Left: HEX | Wheel: DEC";
+      swatch.style.background = hex;
       return hex;
     }
 
@@ -216,6 +259,13 @@
       };
       hint.style.left = `${hintPosition.left}px`;
       hint.style.top = `${hintPosition.top}px`;
+      applySwatchAnchor(anchor);
+    }
+
+    function applySwatchAnchor(anchor) {
+      const position = getSwatchPosition(anchor);
+      swatch.style.left = `${Math.max(8, position.left)}px`;
+      swatch.style.top = `${Math.max(8, position.top)}px`;
     }
 
     function getHintRectAt(position) {
@@ -225,6 +275,47 @@
         right: position.left + hint.offsetWidth,
         bottom: position.top + hint.offsetHeight
       };
+    }
+
+    function getSwatchPosition(anchor) {
+      const margin = 16;
+      const swatchWidth = swatch.offsetWidth;
+      const swatchHeight = swatch.offsetHeight;
+      const positions = {
+        "top-left": {
+          left: window.innerWidth - swatchWidth - margin,
+          top: margin
+        },
+        "top-right": {
+          left: margin,
+          top: margin
+        },
+        "bottom-left": {
+          left: window.innerWidth - swatchWidth - margin,
+          top: window.innerHeight - swatchHeight - margin
+        },
+        "bottom-right": {
+          left: margin,
+          top: window.innerHeight - swatchHeight - margin
+        }
+      };
+
+      return positions[anchor];
+    }
+
+    function getRectAt(position, width, height) {
+      return {
+        left: position.left,
+        top: position.top,
+        right: position.left + width,
+        bottom: position.top + height
+      };
+    }
+
+    function distanceToRect(pointer, rect) {
+      const dx = Math.max(rect.left - pointer.x, 0, pointer.x - rect.right);
+      const dy = Math.max(rect.top - pointer.y, 0, pointer.y - rect.bottom);
+      return Math.hypot(dx, dy);
     }
 
     function pointHitsDangerZone(point, pointer, padding) {
@@ -291,6 +382,7 @@
 
       const start = { ...hintPosition };
       const end = getHintPosition(anchor);
+      applySwatchAnchor(anchor);
       const waypoints = buildEdgeRoute(start, end, pointer);
       const segments = [{ ...start }, ...waypoints];
       const segmentDuration = 170;
@@ -334,27 +426,51 @@
 
     function updateHintAnchor(event) {
       const dangerPadding = 48;
-      const rect = hint.getBoundingClientRect();
+      const hintRect = hint.getBoundingClientRect();
+      const swatchRect = swatch.getBoundingClientRect();
       const isNearHint =
-        event.clientX >= rect.left - dangerPadding &&
-        event.clientX <= rect.right + dangerPadding &&
-        event.clientY >= rect.top - dangerPadding &&
-        event.clientY <= rect.bottom + dangerPadding;
+        event.clientX >= hintRect.left - dangerPadding &&
+        event.clientX <= hintRect.right + dangerPadding &&
+        event.clientY >= hintRect.top - dangerPadding &&
+        event.clientY <= hintRect.bottom + dangerPadding;
+      const isNearSwatch =
+        event.clientX >= swatchRect.left - dangerPadding &&
+        event.clientX <= swatchRect.right + dangerPadding &&
+        event.clientY >= swatchRect.top - dangerPadding &&
+        event.clientY <= swatchRect.bottom + dangerPadding;
 
-      if (!isNearHint) {
+      if (!isNearHint && !isNearSwatch) {
         return;
       }
+      const pointer = { x: event.clientX, y: event.clientY };
+      const anchors = ["top-left", "top-right", "bottom-right", "bottom-left"];
+      let bestAnchor = hintAnchor;
+      let bestScore = -1;
 
-      const nextAnchor = hintAnchor === "top-left"
-        ? "top-right"
-        : hintAnchor === "top-right"
-          ? "bottom-right"
-          : hintAnchor === "bottom-right"
-            ? "bottom-left"
-            : "top-left";
+      for (const anchor of anchors) {
+        if (anchor === hintAnchor) {
+          continue;
+        }
 
-      hintAnchor = nextAnchor;
-      animateHintTo(hintAnchor, { x: event.clientX, y: event.clientY });
+        const hintCandidate = getHintPosition(anchor);
+        const swatchCandidate = getSwatchPosition(anchor);
+        const hintCandidateRect = getRectAt(hintCandidate, hint.offsetWidth, hint.offsetHeight);
+        const swatchCandidateRect = getRectAt(swatchCandidate, swatch.offsetWidth, swatch.offsetHeight);
+        const score = Math.min(
+          distanceToRect(pointer, hintCandidateRect),
+          distanceToRect(pointer, swatchCandidateRect)
+        );
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestAnchor = anchor;
+        }
+      }
+
+      if (bestAnchor !== hintAnchor) {
+        hintAnchor = bestAnchor;
+        animateHintTo(hintAnchor, pointer);
+      }
     }
 
     function decimalText(r, g, b) {
@@ -390,6 +506,7 @@
     }
 
     function handlePointerMove(event) {
+      heroTitle.classList.add("is-hidden");
       lastPointer = { x: event.clientX, y: event.clientY };
       const { x, y } = getCanvasCoordinates(event);
       const { r, g, b } = getColorAtPosition(x, y, canvas.width, canvas.height);
@@ -447,6 +564,7 @@
       hexValue.textContent = "#------";
       decValue.textContent = "---,---,---";
       statusValue.textContent = "Left: HEX | Wheel: DEC";
+      swatch.style.background = "#000000";
       hintAnchor = "top-left";
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
