@@ -4,6 +4,14 @@ Welcome to `bx-colour-selector`.
 
 This is a simple fullscreen HTML colour picker designed to make exploring colour values fast and pleasant. The page displays a full-screen colour field, shows the currently hovered HEX and decimal RGB values, and lets you copy the colour directly with the mouse.
 
+## Live Demo
+
+GitHub Pages is set up for this repository.
+
+Once deployment finishes, the live site should be available at:
+
+https://radimbrixi.github.io/bx-colour-selector/
+
 ## What It Does
 
 - Shows a full-window colour spectrum
