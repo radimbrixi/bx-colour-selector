@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Color Picker</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <script>
     window.BX_ANALYTICS = {
       // To enable GoatCounter, set this to:
@@ -84,11 +85,11 @@
       letter-spacing: 0.02em;
       font-variant-numeric: tabular-nums;
       display: grid;
-      grid-template-columns: 12ch 16ch 23ch;
+      grid-template-columns: 12ch 16ch 39ch;
       column-gap: 2ch;
       align-items: center;
       white-space: nowrap;
-      width: min(59ch, calc(100vw - 32px));
+      width: min(75ch, calc(100vw - 32px));
       user-select: none;
       pointer-events: none;
       backdrop-filter: blur(8px);
@@ -99,6 +100,11 @@
       align-items: center;
       gap: 1ch;
       min-width: 0;
+    }
+
+    .hint-value {
+      display: inline-block;
+      white-space: pre;
     }
 
     .hint-value.hex {
@@ -126,6 +132,7 @@
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
       pointer-events: none;
     }
+
   </style>
 </head>
 <body>
@@ -134,7 +141,7 @@
   <div class="hint">
     <span class="hint-group">HEX <span class="hint-value hex" id="hexValue">#------</span> |</span>
     <span class="hint-group">DEC <span class="hint-value dec" id="decValue">---,---,---</span> |</span>
-    <span class="hint-status" id="statusValue">Left: HEX | Wheel: DEC</span>
+    <span class="hint-status" id="statusValue">Left: HEX | Wheel: DEC | Right: Screen</span>
   </div>
   <div class="swatch" id="swatch" aria-hidden="true"></div>
 
@@ -244,9 +251,18 @@
       document.title = `${hex} | ${r},${g},${b}`;
       hexValue.textContent = hex;
       decValue.textContent = decText;
-      statusValue.textContent = "Left: HEX | Wheel: DEC";
+      statusValue.textContent = "Left: HEX | Wheel: DEC | Right: Screen";
       swatch.style.background = hex;
       return hex;
+    }
+
+    function hexToRgb(hex) {
+      const normalized = hex.replace("#", "");
+      return {
+        r: Number.parseInt(normalized.slice(0, 2), 16),
+        g: Number.parseInt(normalized.slice(2, 4), 16),
+        b: Number.parseInt(normalized.slice(4, 6), 16)
+      };
     }
 
     function getHintPosition(anchor) {
@@ -548,6 +564,26 @@
       }
     }
 
+    async function pickFromScreen() {
+      if (!("EyeDropper" in window)) {
+        statusValue.textContent = "EyeDropper not supported";
+        return;
+      }
+
+      try {
+        heroTitle.classList.add("is-hidden");
+        statusValue.textContent = "Pick any screen color";
+        const result = await new EyeDropper().open();
+        const { r, g, b } = hexToRgb(result.sRGBHex);
+        updateTitle(r, g, b);
+        statusValue.textContent = "Picked from screen";
+      } catch (error) {
+        statusValue.textContent = error?.name === "AbortError"
+          ? "Screen pick canceled"
+          : "Screen pick failed";
+      }
+    }
+
     window.addEventListener("resize", drawSpectrum);
     window.addEventListener("resize", () => {
       if (animationFrameId) {
@@ -574,11 +610,15 @@
         event.preventDefault();
       }
     });
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      pickFromScreen();
+    });
     canvas.addEventListener("mouseleave", () => {
       document.title = defaultTitle;
       hexValue.textContent = "#------";
       decValue.textContent = "---,---,---";
-      statusValue.textContent = "Left: HEX | Wheel: DEC";
+      statusValue.textContent = "Left: HEX | Wheel: DEC | Right: Screen";
       swatch.style.background = "#000000";
       hintAnchor = "top-left";
       if (animationFrameId) {
