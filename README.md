@@ -6,9 +6,7 @@ This is a simple fullscreen HTML colour picker designed to make exploring colour
 
 ## Live Demo
 
-GitHub Pages is set up for this repository.
-
-Once deployment finishes, the live site should be available at:
+You can try the live demo here:
 
 https://radimbrixi.github.io/bx-colour-selector/
 
@@ -37,3 +35,21 @@ https://radimbrixi.github.io/bx-colour-selector/
 The project is intentionally lightweight and does not require any build step, framework, or dependency installation.
 
 If you are visiting this repository for the first time, you are very welcome here. I hope the tool is useful and easy to enjoy.
+
+## Visitor Tracking
+
+This project includes a ready-to-enable GoatCounter hook for privacy-friendly visitor tracking.
+
+To turn it on:
+
+1. Create a GoatCounter site.
+2. Open `index.html`.
+3. Set `window.BX_ANALYTICS.goatcounterUrl` to your GoatCounter count URL.
+
+Example:
+
+```html
+goatcounterUrl: "https://your-code.goatcounter.com/count"
+```
+
+After that, GitHub Pages visitors will start being counted in your GoatCounter dashboard.

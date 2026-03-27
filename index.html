@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Color Picker</title>
+  <script>
+    window.BX_ANALYTICS = {
+      // To enable GoatCounter, set this to:
+      // "https://YOUR-CODE.goatcounter.com/count"
+      goatcounterUrl: ""
+    };
+
+    if (window.BX_ANALYTICS.goatcounterUrl) {
+      const analyticsScript = document.createElement("script");
+      analyticsScript.async = true;
+      analyticsScript.src = "https://gc.zgo.at/count.js";
+      analyticsScript.dataset.goatcounter = window.BX_ANALYTICS.goatcounterUrl;
+      document.head.appendChild(analyticsScript);
+    }
+  </script>
   <style>
     :root {
       color-scheme: light;
