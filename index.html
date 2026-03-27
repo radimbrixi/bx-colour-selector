@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Picker</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      cursor: crosshair;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .hint {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-family: Consolas, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", monospace;
+      font-size: clamp(11px, 1.4vw, 14px);
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+      display: grid;
+      grid-template-columns: 12ch 16ch 23ch;
+      column-gap: 2ch;
+      align-items: center;
+      white-space: nowrap;
+      width: min(59ch, calc(100vw - 32px));
+      user-select: none;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .hint-group {
+      display: flex;
+      align-items: center;
+      gap: 1ch;
+      min-width: 0;
+    }
+
+    .hint-value.hex {
+      width: 7ch;
+    }
+
+    .hint-value.dec {
+      width: 11ch;
+    }
+
+    .hint-status {
+      display: block;
+      vertical-align: bottom;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="picker" aria-label="Full page color picker"></canvas>
+  <div class="hint">
+    <span class="hint-group">HEX <span class="hint-value hex" id="hexValue">#------</span> |</span>
+    <span class="hint-group">DEC <span class="hint-value dec" id="decValue">---,---,---</span> |</span>
+    <span class="hint-status" id="statusValue">Left: HEX | Wheel: DEC</span>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("picker");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const hint = document.querySelector(".hint");
+    const hexValue = document.getElementById("hexValue");
+    const decValue = document.getElementById("decValue");
+    const statusValue = document.getElementById("statusValue");
+    const defaultTitle = "Color Picker";
+    let hintAnchor = "top-left";
+    let hintPosition = { left: 16, top: 16 };
+    let animationFrameId = null;
+    let lastPointer = null;
+
+    function hsvToRgb(h, s, v) {
+      const c = v * s;
+      const hh = h / 60;
+      const x = c * (1 - Math.abs((hh % 2) - 1));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      if (hh >= 0 && hh < 1) {
+        r = c; g = x;
+      } else if (hh < 2) {
+        r = x; g = c;
+      } else if (hh < 3) {
+        g = c; b = x;
+      } else if (hh < 4) {
+        g = x; b = c;
+      } else if (hh < 5) {
+        r = x; b = c;
+      } else {
+        r = c; b = x;
+      }
+
+      const m = v - c;
+      return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255)
+      };
+    }
+
+    function getColorAtPosition(x, y, width, height) {
+      const hue = (x / Math.max(width - 1, 1)) * 360;
+      const normalizedY = y / Math.max(height - 1, 1);
+
+      let saturation;
+      let value;
+
+      if (normalizedY <= 0.5) {
+        saturation = normalizedY * 2;
+        value = 1;
+      } else {
+        saturation = 1;
+        value = 1 - ((normalizedY - 0.5) * 2);
+      }
+
+      return hsvToRgb(hue, saturation, value);
+    }
+
+    function rgbToHex(r, g, b) {
+      return "#" + [r, g, b]
+        .map((value) => value.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+    }
+
+    function padDec(value) {
+      return String(value).padStart(3, " ");
+    }
+
+    function drawSpectrum() {
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const image = context.createImageData(width, height);
+      const pixels = image.data;
+
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const offset = (y * width + x) * 4;
+          const { r, g, b } = getColorAtPosition(x, y, width, height);
+
+          pixels[offset] = r;
+          pixels[offset + 1] = g;
+          pixels[offset + 2] = b;
+          pixels[offset + 3] = 255;
+        }
+      }
+
+      context.putImageData(image, 0, 0);
+    }
+
+    function updateTitle(r, g, b) {
+      const hex = rgbToHex(r, g, b);
+      const decText = `${padDec(r)},${padDec(g)},${padDec(b)}`;
+      document.title = `${hex} | ${r},${g},${b}`;
+      hexValue.textContent = hex;
+      decValue.textContent = decText;
+      statusValue.textContent = "Left: HEX | Wheel: DEC";
+      return hex;
+    }
+
+    function getHintPosition(anchor) {
+      const margin = 16;
+      const hintWidth = hint.offsetWidth;
+      const hintHeight = hint.offsetHeight;
+      const positions = {
+        "top-left": { left: margin, top: margin },
+        "top-right": { left: window.innerWidth - hintWidth - margin, top: margin },
+        "bottom-left": { left: margin, top: window.innerHeight - hintHeight - margin },
+        "bottom-right": {
+          left: window.innerWidth - hintWidth - margin,
+          top: window.innerHeight - hintHeight - margin
+        }
+      };
+
+      return positions[anchor];
+    }
+
+    function applyHintAnchor(anchor) {
+      const position = getHintPosition(anchor);
+      hintPosition = {
+        left: Math.max(8, position.left),
+        top: Math.max(8, position.top)
+      };
+      hint.style.left = `${hintPosition.left}px`;
+      hint.style.top = `${hintPosition.top}px`;
+    }
+
+    function getHintRectAt(position) {
+      return {
+        left: position.left,
+        top: position.top,
+        right: position.left + hint.offsetWidth,
+        bottom: position.top + hint.offsetHeight
+      };
+    }
+
+    function pointHitsDangerZone(point, pointer, padding) {
+      return (
+        point.left <= pointer.x + padding &&
+        point.right >= pointer.x - padding &&
+        point.top <= pointer.y + padding &&
+        point.bottom >= pointer.y - padding
+      );
+    }
+
+    function buildEdgeRoute(start, end, pointer) {
+      const margin = 16;
+      const width = hint.offsetWidth;
+      const height = hint.offsetHeight;
+      const right = window.innerWidth - width - margin;
+      const bottom = window.innerHeight - height - margin;
+      const topLane = margin;
+      const bottomLane = bottom;
+      const leftLane = margin;
+      const rightLane = right;
+      const routeOptions = [
+        [
+          { left: start.left, top: topLane },
+          { left: end.left, top: topLane },
+          end
+        ],
+        [
+          { left: start.left, top: bottomLane },
+          { left: end.left, top: bottomLane },
+          end
+        ],
+        [
+          { left: leftLane, top: start.top },
+          { left: leftLane, top: end.top },
+          end
+        ],
+        [
+          { left: rightLane, top: start.top },
+          { left: rightLane, top: end.top },
+          end
+        ]
+      ];
+      const dangerPadding = 64;
+
+      for (const route of routeOptions) {
+        const allPoints = [start, ...route];
+        const crossesPointer = allPoints.some((position) =>
+          pointHitsDangerZone(getHintRectAt(position), pointer, dangerPadding)
+        );
+
+        if (!crossesPointer) {
+          return route;
+        }
+      }
+
+      return [end];
+    }
+
+    function animateHintTo(anchor, pointer) {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      const start = { ...hintPosition };
+      const end = getHintPosition(anchor);
+      const waypoints = buildEdgeRoute(start, end, pointer);
+      const segments = [{ ...start }, ...waypoints];
+      const segmentDuration = 170;
+      let segmentIndex = 0;
+      let segmentStartTime = null;
+
+      function step(timestamp) {
+        if (segmentIndex >= segments.length - 1) {
+          hintPosition = { ...end };
+          hint.style.left = `${hintPosition.left}px`;
+          hint.style.top = `${hintPosition.top}px`;
+          animationFrameId = null;
+          return;
+        }
+
+        if (segmentStartTime === null) {
+          segmentStartTime = timestamp;
+        }
+
+        const from = segments[segmentIndex];
+        const to = segments[segmentIndex + 1];
+        const progress = Math.min((timestamp - segmentStartTime) / segmentDuration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const left = from.left + (to.left - from.left) * eased;
+        const top = from.top + (to.top - from.top) * eased;
+
+        hint.style.left = `${left}px`;
+        hint.style.top = `${top}px`;
+        hintPosition = { left, top };
+
+        if (progress >= 1) {
+          segmentIndex += 1;
+          segmentStartTime = timestamp;
+        }
+
+        animationFrameId = requestAnimationFrame(step);
+      }
+
+      animationFrameId = requestAnimationFrame(step);
+    }
+
+    function updateHintAnchor(event) {
+      const dangerPadding = 48;
+      const rect = hint.getBoundingClientRect();
+      const isNearHint =
+        event.clientX >= rect.left - dangerPadding &&
+        event.clientX <= rect.right + dangerPadding &&
+        event.clientY >= rect.top - dangerPadding &&
+        event.clientY <= rect.bottom + dangerPadding;
+
+      if (!isNearHint) {
+        return;
+      }
+
+      const nextAnchor = hintAnchor === "top-left"
+        ? "top-right"
+        : hintAnchor === "top-right"
+          ? "bottom-right"
+          : hintAnchor === "bottom-right"
+            ? "bottom-left"
+            : "top-left";
+
+      hintAnchor = nextAnchor;
+      animateHintTo(hintAnchor, { x: event.clientX, y: event.clientY });
+    }
+
+    function decimalText(r, g, b) {
+      return `${r},${g},${b}`;
+    }
+
+    function getCanvasCoordinates(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      return {
+        x: Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * scaleX))),
+        y: Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * scaleY)))
+      };
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const input = document.createElement("textarea");
+      input.value = text;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+
+    function handlePointerMove(event) {
+      lastPointer = { x: event.clientX, y: event.clientY };
+      const { x, y } = getCanvasCoordinates(event);
+      const { r, g, b } = getColorAtPosition(x, y, canvas.width, canvas.height);
+      updateTitle(r, g, b);
+      updateHintAnchor(event);
+    }
+
+    async function copyAtEvent(event, mode) {
+      const { x, y } = getCanvasCoordinates(event);
+      const { r, g, b } = getColorAtPosition(x, y, canvas.width, canvas.height);
+      const hex = updateTitle(r, g, b);
+      const dec = decimalText(r, g, b);
+      const textToCopy = mode === "dec" ? dec : hex;
+
+      try {
+        await copyText(textToCopy);
+        statusValue.textContent = mode === "dec"
+          ? `Copied DEC`
+          : `Copied HEX`;
+      } catch (error) {
+        statusValue.textContent = mode === "dec"
+          ? `DEC copy failed`
+          : `HEX copy failed`;
+      }
+    }
+
+    window.addEventListener("resize", drawSpectrum);
+    window.addEventListener("resize", () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+
+      applyHintAnchor(hintAnchor);
+    });
+    canvas.addEventListener("mousemove", handlePointerMove);
+    canvas.addEventListener("click", (event) => {
+      copyAtEvent(event, "hex");
+    });
+    canvas.addEventListener("auxclick", (event) => {
+      if (event.button !== 1) {
+        return;
+      }
+
+      event.preventDefault();
+      copyAtEvent(event, "dec");
+    });
+    canvas.addEventListener("mousedown", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+      }
+    });
+    canvas.addEventListener("mouseleave", () => {
+      document.title = defaultTitle;
+      hexValue.textContent = "#------";
+      decValue.textContent = "---,---,---";
+      statusValue.textContent = "Left: HEX | Wheel: DEC";
+      hintAnchor = "top-left";
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      applyHintAnchor(hintAnchor);
+    });
+
+    drawSpectrum();
+    applyHintAnchor(hintAnchor);
+  </script>
+</body>
+</html>
