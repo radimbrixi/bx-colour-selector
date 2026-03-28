@@ -1,52 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="pGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff3b30"/>
-      <stop offset="18%" stop-color="#ff9500"/>
-      <stop offset="36%" stop-color="#ffcc00"/>
-      <stop offset="54%" stop-color="#34c759"/>
-      <stop offset="72%" stop-color="#00c7ff"/>
-      <stop offset="100%" stop-color="#af52de"/>
-    </linearGradient>
-  </defs>
-
   <rect width="64" height="64" rx="12" fill="#fff6b3"/>
 
   <g
     fill="#35e6ff"
     stroke="#000000"
-    stroke-width="3.4"
+    stroke-width="3"
     stroke-linejoin="round"
     stroke-linecap="round"
     paint-order="stroke fill"
-    transform="translate(0,-4) scale(1,1.2)"
+    transform="translate(1.6,-3) scale(0.95,1.34)"
   >
+    <animate
+      attributeName="fill"
+      values="#35e6ff;#7dff3a;#ff4fd8;#ffcf3a;#35e6ff"
+      dur="6s"
+      repeatCount="indefinite"
+    />
     <text
-      x="16.5"
-      y="35"
+      x="17"
+      y="42"
       text-anchor="middle"
       font-family="Arial Black, Impact, sans-serif"
-      font-size="48"
+      font-size="56"
       font-weight="900"
     >B</text>
 
     <text
-      x="47.5"
-      y="35"
+      x="47"
+      y="42"
       text-anchor="middle"
       font-family="Arial Black, Impact, sans-serif"
-      font-size="48"
+      font-size="56"
       font-weight="900"
     >X</text>
   </g>
-
-  <text
-    x="32"
-    y="58"
-    text-anchor="middle"
-    font-family="Arial Black, Impact, sans-serif"
-    font-size="12"
-    font-weight="900"
-    fill="url(#pGradient)"
-  >P</text>
 </svg>

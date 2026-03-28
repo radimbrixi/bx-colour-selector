@@ -3,8 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Color Picker</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <title>BX Colour Selector</title>
+  <meta name="description" content="BX Colour Selector is a fullscreen browser colour picker with live HEX and RGB readout, screen pick support, clipboard copy, and a moving preview swatch.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="author" content="Radim Brixi">
+  <meta name="theme-color" content="#fff6b3">
+  <link rel="canonical" href="https://radimbrixi.github.io/bx-colour-selector/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="BX Colour Selector">
+  <meta property="og:title" content="BX Colour Selector">
+  <meta property="og:description" content="Fullscreen colour selector with live HEX and RGB values, copy controls, and browser EyeDropper support.">
+  <meta property="og:url" content="https://radimbrixi.github.io/bx-colour-selector/">
+  <meta property="og:image" content="https://radimbrixi.github.io/bx-colour-selector/favicon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="BX Colour Selector">
+  <meta name="twitter:description" content="Fullscreen colour selector with live HEX and RGB values, copy controls, and browser EyeDropper support.">
+  <meta name="twitter:image" content="https://radimbrixi.github.io/bx-colour-selector/favicon.svg">
+  <link rel="icon" id="dynamicFavicon" type="image/png" href="favicon.svg">
   <script>
     window.BX_ANALYTICS = {
       // To enable GoatCounter, set this to:
@@ -148,6 +163,7 @@
   <script>
     const canvas = document.getElementById("picker");
     const context = canvas.getContext("2d", { willReadFrequently: true });
+    const faviconLink = document.getElementById("dynamicFavicon");
     const heroTitle = document.getElementById("heroTitle");
     const hint = document.querySelector(".hint");
     const swatch = document.getElementById("swatch");
@@ -159,6 +175,95 @@
     let hintPosition = { left: 16, top: 16 };
     let animationFrameId = null;
     let lastPointer = null;
+    let faviconAnimationId = null;
+
+    const faviconPalette = [
+      [0.0, "#35e6ff"],
+      [0.33, "#7dff3a"],
+      [0.66, "#ff4fd8"],
+      [1.0, "#ffcf3a"]
+    ];
+
+    function hexToChannels(hex) {
+      const normalized = hex.replace("#", "");
+      return {
+        r: Number.parseInt(normalized.slice(0, 2), 16),
+        g: Number.parseInt(normalized.slice(2, 4), 16),
+        b: Number.parseInt(normalized.slice(4, 6), 16)
+      };
+    }
+
+    function mixColor(a, b, t) {
+      const from = hexToChannels(a);
+      const to = hexToChannels(b);
+      const mix = (start, end) => Math.round(start + (end - start) * t);
+      return `rgb(${mix(from.r, to.r)}, ${mix(from.g, to.g)}, ${mix(from.b, to.b)})`;
+    }
+
+    function colorAtPhase(phase) {
+      const wrapped = ((phase % 1) + 1) % 1;
+
+      for (let index = 0; index < faviconPalette.length; index += 1) {
+        const current = faviconPalette[index];
+        const next = faviconPalette[(index + 1) % faviconPalette.length];
+        const currentStop = current[0];
+        const nextStop = index === faviconPalette.length - 1 ? 1 + faviconPalette[0][0] : next[0];
+        const adjusted = wrapped < currentStop ? wrapped + 1 : wrapped;
+
+        if (adjusted >= currentStop && adjusted <= nextStop) {
+          const localT = (adjusted - currentStop) / (nextStop - currentStop || 1);
+          return mixColor(current[1], next[1], localT);
+        }
+      }
+
+      return faviconPalette[0][1];
+    }
+
+    function drawAnimatedFavicon(color) {
+      const iconCanvas = document.createElement("canvas");
+      iconCanvas.width = 64;
+      iconCanvas.height = 64;
+      const iconContext = iconCanvas.getContext("2d");
+
+      iconContext.fillStyle = "#fff6b3";
+      iconContext.beginPath();
+      iconContext.roundRect(0, 0, 64, 64, 12);
+      iconContext.fill();
+
+      iconContext.save();
+      iconContext.translate(1.6, -3);
+      iconContext.scale(0.95, 1.34);
+      iconContext.fillStyle = color;
+      iconContext.strokeStyle = "#000000";
+      iconContext.lineWidth = 3;
+      iconContext.lineJoin = "round";
+      iconContext.lineCap = "round";
+      iconContext.font = "900 56px Arial Black";
+      iconContext.textAlign = "center";
+      iconContext.textBaseline = "alphabetic";
+      iconContext.strokeText("B", 17, 42);
+      iconContext.fillText("B", 17, 42);
+      iconContext.strokeText("X", 47, 42);
+      iconContext.fillText("X", 47, 42);
+      iconContext.restore();
+
+      faviconLink.href = iconCanvas.toDataURL("image/png");
+    }
+
+    function startFaviconAnimation() {
+      const startedAt = performance.now();
+
+      function tick(now) {
+        const phase = ((now - startedAt) % 6000) / 6000;
+        drawAnimatedFavicon(colorAtPhase(phase));
+        faviconAnimationId = window.setTimeout(() => {
+          requestAnimationFrame(tick);
+        }, 180);
+      }
+
+      drawAnimatedFavicon(colorAtPhase(0));
+      requestAnimationFrame(tick);
+    }
 
     function hsvToRgb(h, s, v) {
       const c = v * s;
@@ -630,6 +735,7 @@
 
     drawSpectrum();
     applyHintAnchor(hintAnchor);
+    startFaviconAnimation();
   </script>
 </body>
 </html>
